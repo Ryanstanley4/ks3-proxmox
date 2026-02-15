@@ -4,10 +4,9 @@ resource "proxmox_vm_qemu" "vm" {
 
   name        = "${var.name_prefix}${each.key + 1}"
   target_node = var.target_nodes[each.key % length(var.target_nodes)]
-  boot = "order=virtio0;ide2"
-  bootdisk = "virtio0"
+  boot = var.iso_file != null ? "order=virtio0;ide2" : null
   bios  = "ovmf"
-  scsihw = "virtio-scsi-pci"
+  scsihw = var.iso_file != null ? "virtio-scsi-pci" : null
 
   cpu {
     sockets = var.sockets
@@ -18,6 +17,10 @@ resource "proxmox_vm_qemu" "vm" {
   agent               = 1
   start_at_node_boot  = true
   skip_ipv6           = true
+
+  # Only set clone/full_clone if clone_from is provided, otherwise Proxmox API rejects the request
+  clone               = var.clone_from != null ? var.clone_from : null
+  full_clone          = var.clone_from != null ? true : null
 
   efidisk {
     efitype = "4m"
@@ -30,7 +33,9 @@ resource "proxmox_vm_qemu" "vm" {
     storage = var.storage
   }
 
-  disks {
+  dynamic "disks" {
+    for_each = var.iso_file != null ? [1] : []
+    content {
     virtio {
       virtio0 {
         disk {
@@ -39,12 +44,14 @@ resource "proxmox_vm_qemu" "vm" {
         }
       }
     }
-    ide {
-      ide2 {
-        cdrom {
-          iso = "${var.iso_storage}:iso/${var.iso_file}"
+
+   ide {
+            ide2 {
+                cdrom {
+                iso = "${var.iso_storage}:iso/${var.iso_file}"
+                }
+            }
         }
-      }
     }
   }
 

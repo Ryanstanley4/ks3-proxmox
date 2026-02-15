@@ -21,7 +21,7 @@ variable "storage" {
 
 variable "disk_gb" {
   type    = number
-  default = 20
+  default = 50
 }
 
 variable "cores" {
@@ -51,7 +51,7 @@ variable "vlan_tag" {
 
 variable "tags" {
   type    = list(string)
-  default = ["talos_cluster","terraform"]
+  default = ["terraform"]
   validation {
     condition = alltrue([for t in var.tags : can(regex("^[A-Za-z0-9][A-Za-z0-9._-]*$", t))])
     error_message = "Each tag must start with a letter/number and contain only A–Z, a–z, 0–9, '-', '.', '_'."
@@ -65,7 +65,7 @@ variable "iso_storage" {
 
 variable "iso_file" {
   type = string 
-  default = "metal-amd64.iso"
+  default = null
 }
 
 variable "wait_for_ipv4" {
@@ -78,4 +78,10 @@ variable "agent_timeout" {
   type        = number
   default     = 30
   description = "Seconds to wait for qemu-guest-agent IP. Lower to speed up destroy in flaky environments."
+}
+
+variable "clone_from" {
+  type        = string
+  default     = null
+  description = "VMID to clone from. If null."
 }
