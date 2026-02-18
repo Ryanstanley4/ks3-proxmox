@@ -4,9 +4,11 @@ resource "proxmox_vm_qemu" "vm" {
 
   name        = "${var.name_prefix}${each.key + 1}"
   target_node = var.target_nodes[each.key % length(var.target_nodes)]
-  boot = var.iso_file != null ? "order=virtio0;ide2" : null
   bios  = "ovmf"
-  scsihw = var.iso_file != null ? "virtio-scsi-pci" : null
+
+  # boot must match whatever disk you actually have
+  boot   = var.clone_from != null ? "order=scsi0" : "order=virtio0;ide2"
+  scsihw = var.clone_from != null ? "virtio-scsi-single" : null
 
   cpu {
     sockets = var.sockets
@@ -19,33 +21,46 @@ resource "proxmox_vm_qemu" "vm" {
   skip_ipv6           = true
 
   # Only set clone/full_clone if clone_from is provided, otherwise Proxmox API rejects the request
-  clone               = var.clone_from != null ? var.clone_from : null
+  clone_id            = var.clone_from != null ? var.clone_from : null
   full_clone          = var.clone_from != null ? true : null
 
-  efidisk {
-    efitype = "4m"
-    storage = var.storage
-    pre_enrolled_keys = false
-  }
-
-  tpm_state {
-    version = "v2.0"
-    storage = var.storage
-  }
-
-  dynamic "disks" {
-    for_each = var.iso_file != null ? [1] : []
+  dynamic "efidisk" {
+    for_each = var.clone_from == null ? [1] : []
     content {
-    virtio {
-      virtio0 {
-        disk {
-          storage = var.storage
-          size    = "${var.disk_gb}G"
+      efitype = "4m"
+      storage = var.storage
+      pre_enrolled_keys = false
+    }
+  }
+
+    disks {
+    dynamic "scsi" {
+        for_each = var.clone_from != null ? [1] : []
+        content {
+            scsi0 {
+                disk {
+                storage = var.storage
+                size    = "${var.disk_gb}G"
+                }
+            }
         }
-      }
     }
 
-   ide {
+    dynamic "virtio" {
+        for_each = var.clone_from == null ? [1] : []
+        content {
+            virtio0 {
+                disk {
+                storage = var.storage
+                size    = "${var.disk_gb}G"
+                }
+            }
+        }
+    }
+
+    dynamic "ide" {
+        for_each = var.iso_file != null ? [1] : []
+        content {
             ide2 {
                 cdrom {
                 iso = "${var.iso_storage}:iso/${var.iso_file}"
@@ -53,7 +68,7 @@ resource "proxmox_vm_qemu" "vm" {
             }
         }
     }
-  }
+    }
 
   network {
     id     = 0

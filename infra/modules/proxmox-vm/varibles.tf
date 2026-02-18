@@ -21,7 +21,7 @@ variable "storage" {
 
 variable "disk_gb" {
   type    = number
-  default = 50
+  default = 32
 }
 
 variable "cores" {
